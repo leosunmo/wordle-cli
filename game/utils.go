@@ -14,7 +14,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"pkg.nimblebun.works/clipboard"
 	"pkg.nimblebun.works/wordle-cli/common"
-	"pkg.nimblebun.works/wordle-cli/common/save"
 	"pkg.nimblebun.works/wordle-cli/words"
 )
 
@@ -41,6 +40,7 @@ func (m *AppModel) getGridLetterState(row, col int) common.LetterState {
 }
 
 func (m *AppModel) quit() tea.Cmd {
+	m.save()
 	return tea.Quit
 }
 
@@ -170,6 +170,7 @@ func (m *AppModel) enter() tea.Cmd {
 	}
 
 	if m.GameType != common.GameTypeRandom {
+		fmt.Printf("Saving %q after pressing enter\n", m.User)
 		m.save()
 	}
 
@@ -187,7 +188,14 @@ func (m *AppModel) new() tea.Cmd {
 
 	word, idx := words.GetRandomWordle()
 
-	newModel := NewGame(word, common.GameTypeRandom, idx)
+	conf := &GameConfig{
+		Word:        word,
+		GameType:    common.GameTypeRandom,
+		ID:          idx,
+		User:        m.User,
+		SaveStorage: m.SaveStorage,
+	}
+	newModel := NewGame(conf)
 
 	m.ID = newModel.ID
 	m.Word = newModel.Word
@@ -272,6 +280,5 @@ func (m *AppModel) save() {
 		m.SaveData.Statistics.GamesWon++
 		m.SaveData.Statistics.GuessDistribution[m.CurrentRow]++
 	}
-
-	_ = save.Save(m.SaveData, m.GameType.ID())
+	_ = m.SaveStorage.Save(m.SaveData, m.GameType.ID(), m.User)
 }

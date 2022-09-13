@@ -3,3 +3,4 @@ vendor
 dist
 .ssh
 wordle-cli
+bolt.db

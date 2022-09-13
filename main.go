@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"pkg.nimblebun.works/wordle-cli/common"
+	"pkg.nimblebun.works/wordle-cli/common/save"
 	"pkg.nimblebun.works/wordle-cli/game"
 	"pkg.nimblebun.works/wordle-cli/ssh"
 	"pkg.nimblebun.works/wordle-cli/words"
@@ -21,12 +22,23 @@ import (
 )
 
 func startGame(c *cli.Context, word string, gameType common.GameType, id int) error {
-	model := game.NewGame(word, gameType, id)
+
+	conf := &game.GameConfig{
+		Word:     word,
+		GameType: gameType,
+		ID:       id,
+	}
 
 	if c.Bool("ssh") {
 		addr := fmt.Sprintf("%s:%d", c.String("host"), c.Int("port"))
-		return ssh.StartSSH(addr, model)
+		db, err := save.NewStorage("./bolt.db")
+		if err != nil {
+			return fmt.Errorf("failed to open bolt db: %w", err)
+		}
+		conf.SaveStorage = db
+		return ssh.StartSSH(addr, conf)
 	}
+	model := game.NewGame(conf)
 	program := tea.NewProgram(model, tea.WithAltScreen())
 
 	return program.Start()

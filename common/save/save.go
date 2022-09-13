@@ -7,13 +7,13 @@
 package save
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-
 	"pkg.nimblebun.works/wordle-cli/common"
 )
+
+type Storage interface {
+	Load(id string, user uint64) (*SaveFile, error)
+	Save(save *SaveFile, id string, user uint64) error
+}
 
 type Statistics struct {
 	GamesPlayed       int         `json:"games_played"`
@@ -28,32 +28,7 @@ type SaveFile struct {
 	Statistics     Statistics                                                         `json:"statistics"`
 }
 
-func loadSave(savepath string) (*SaveFile, error) {
-	data, err := ioutil.ReadFile(savepath)
-	if err != nil {
-		return nil, err
-	}
-
-	save := New()
-	err = json.Unmarshal(data, save)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return save, nil
-}
-
-func getSaveLocation(id string) (string, error) {
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s/.wordlecli_%s.save.json", dir, id), nil
-}
-
-func New() *SaveFile {
+func NewSave() *SaveFile {
 	return &SaveFile{
 		LastGameID:     -1,
 		LastGameStatus: common.GameStateRunning,
@@ -71,32 +46,4 @@ func New() *SaveFile {
 			},
 		},
 	}
-}
-
-func Load(id string) (*SaveFile, error) {
-	savepath, err := getSaveLocation(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return loadSave(savepath)
-}
-
-func Save(save *SaveFile, id string) error {
-	savepath, err := getSaveLocation(id)
-	if err != nil {
-		return err
-	}
-
-	data, err := json.Marshal(save)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(savepath, data, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

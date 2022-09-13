@@ -17,6 +17,7 @@ import (
 
 type AppModel struct {
 	ID                int
+	User              uint64
 	Word              [5]byte
 	LetterStates      map[byte]common.LetterState
 	Grid              [common.WordleMaxGuesses][common.WordleWordLength]*common.GridItem
@@ -24,31 +25,46 @@ type AppModel struct {
 	CurrentColumn     int
 	GameType          common.GameType
 	GameState         common.GameState
+	SaveStorage       save.Storage
 	SaveData          *save.SaveFile
 	NewGame           bool
 	DisplayStatistics bool
 }
 
-func NewGame(word string, gameType common.GameType, id int) *AppModel {
-	model := &AppModel{}
+type GameConfig struct {
+	Word        string
+	GameType    common.GameType
+	ID          int
+	User        uint64
+	SaveStorage save.Storage
+}
 
-	if gameType != common.GameTypeRandom {
+func NewGame(conf *GameConfig) *AppModel {
+	saves := conf.SaveStorage
+	if saves == nil {
+		saves = save.LocalStorage{}
+	}
+	model := &AppModel{}
+	model.SaveStorage = saves
+	model.User = conf.User
+
+	if conf.GameType != common.GameTypeRandom {
 		var saveData *save.SaveFile
-		saveData, err := save.Load(gameType.ID())
+		saveData, err := saves.Load(conf.GameType.ID(), conf.User)
 		if err != nil {
-			saveData = save.New()
+			saveData = save.NewSave()
 		}
 
 		model.SaveData = saveData
 	}
 
-	splitWord := strings.Split(word, "")
+	splitWord := strings.Split(conf.Word, "")
 	for i, letter := range splitWord {
 		model.Word[i] = letter[0]
 	}
 
-	model.ID = id
-	model.GameType = gameType
+	model.ID = conf.ID
+	model.GameType = conf.GameType
 	model.GameState = common.GameStateRunning
 	model.LetterStates = make(map[byte]common.LetterState, 26)
 	model.CurrentRow = 0
@@ -56,7 +72,7 @@ func NewGame(word string, gameType common.GameType, id int) *AppModel {
 	model.NewGame = true
 	model.DisplayStatistics = false
 
-	if gameType != common.GameTypeRandom && model.SaveData.LastGameID == model.ID {
+	if conf.GameType != common.GameTypeRandom && model.SaveData.LastGameID == model.ID {
 		model.GameState = model.SaveData.LastGameStatus
 		model.NewGame = model.SaveData.LastGameStatus == common.GameStateRunning
 

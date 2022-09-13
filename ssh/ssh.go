@@ -2,6 +2,8 @@ package ssh
 
 import (
 	"context"
+	"fmt"
+	"hash/fnv"
 	"log"
 	"os"
 	"os/signal"
@@ -13,15 +15,18 @@ import (
 	bm "github.com/charmbracelet/wish/bubbletea"
 	lm "github.com/charmbracelet/wish/logging"
 	"github.com/gliderlabs/ssh"
+	"pkg.nimblebun.works/wordle-cli/game"
 )
 
 // StartSSH starts the SSH game.
-func StartSSH(addr string, model tea.Model) error {
+func StartSSH(addr string, conf *game.GameConfig) error {
+
 	s, err := wish.NewServer(
 		wish.WithAddress(addr),
 		wish.WithHostKeyPath(".ssh/term_info_ed25519"),
+		wish.WithPublicKeyAuth(pubKeyHandler),
 		wish.WithMiddleware(
-			bm.Middleware(teaHandler(model)),
+			bm.Middleware(teaHandler(conf)),
 			lm.Middleware(),
 		),
 	)
@@ -49,7 +54,7 @@ func StartSSH(addr string, model tea.Model) error {
 	return nil
 }
 
-func teaHandler(m tea.Model) func(ssh.Session) (tea.Model, []tea.ProgramOption) {
+func teaHandler(conf *game.GameConfig) func(ssh.Session) (tea.Model, []tea.ProgramOption) {
 	return func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 		_, _, active := s.Pty()
 		if !active {
@@ -57,6 +62,21 @@ func teaHandler(m tea.Model) func(ssh.Session) (tea.Model, []tea.ProgramOption) 
 			return nil, nil
 		}
 
-		return m, []tea.ProgramOption{tea.WithAltScreen()}
+		pubKey := s.PublicKey()
+		if pubKey != nil {
+			h := fnv.New64a()
+			h.Write(pubKey.Marshal())
+			conf.User = h.Sum64()
+		}
+
+		fmt.Printf("New SSH connection from %d\n", conf.User)
+
+		model := game.NewGame(conf)
+
+		return model, []tea.ProgramOption{tea.WithAltScreen()}
 	}
+}
+
+func pubKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
+	return true
 }

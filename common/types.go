@@ -121,3 +121,16 @@ func (gt GameType) ID() string {
 		panic(fmt.Sprintf("Unknown game type: %d", gt))
 	}
 }
+
+func StringToGameType(id string) GameType {
+	switch id {
+	case GameTypeOfficial.ID():
+		return GameTypeOfficial
+	case GameTypeDaily.ID():
+		return GameTypeDaily
+	case GameTypeRandom.ID():
+		return GameTypeRandom
+	default:
+		panic(fmt.Sprintf("Unknown game type: %s", id))
+	}
+}
